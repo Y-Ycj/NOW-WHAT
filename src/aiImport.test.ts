@@ -143,4 +143,16 @@ describe("aiImport", () => {
   it("explains browser connection failures", () => {
     expect(explainAiImportError(new TypeError("Failed to fetch"))).toContain("浏览器无法直接连接");
   });
+
+  it("does not treat unsupported providers as a successful AI connection", async () => {
+    await expect(() =>
+      importTasksWithAi({
+        apiKey: "random-key",
+        model: "unknown:model",
+        prompt: "测试",
+        provider: "unknown",
+        vision: false
+      })
+    ).rejects.toThrow("暂不支持这个 API 服务商");
+  });
 });

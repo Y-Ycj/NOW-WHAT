@@ -1743,9 +1743,8 @@ function taskDraftFromAiDraft(draft: AiImportDraft): TaskEntryDraft {
 }
 
 function getImportProvider(model: string) {
-  if (model.startsWith("openrouter:")) return "openrouter";
-  if (model.startsWith("openai:")) return "openai";
-  return "fallback";
+  const provider = model.split(":")[0];
+  return provider || "unknown";
 }
 
 function NavButton({

@@ -67,7 +67,7 @@ export async function importTasksWithAi(request: AiImportRequest): Promise<AiImp
     return importWithGemini(request);
   }
 
-  return fallbackImportDraft(request.prompt || request.imageName || "");
+  throw new AiProviderError("暂不支持这个 API 服务商。请换一个列表中的模型，或等待后续接入。", request.provider);
 }
 
 export async function testAiConnection(request: Omit<AiImportRequest, "imageDataUrl" | "imageMimeType" | "imageName" | "prompt">) {
