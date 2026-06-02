@@ -1857,7 +1857,14 @@ p {
   .bottom-nav {
     bottom: calc(14px + env(safe-area-inset-bottom));
     border-radius: 28px;
+    transition: opacity 180ms ease, transform 180ms ease;
     width: min(420px, calc(100vw - 40px));
+  }
+
+  .app-frame:focus-within + .bottom-nav {
+    opacity: 0;
+    pointer-events: none;
+    transform: translate(-50%, calc(100% + 28px));
   }
 
   .nav-button {
@@ -1871,13 +1878,29 @@ p {
   }
 
   .usage-chart {
-    gap: 4px;
+    gap: 6px;
+    grid-template-columns: repeat(14, minmax(46px, 46px));
+    justify-content: start;
+    margin-inline: -4px;
     overflow-x: auto;
-    padding-bottom: 12px;
+    padding: 16px 4px 12px;
+    scrollbar-width: thin;
   }
 
   .usage-day {
-    min-width: 42px;
+    min-width: 46px;
+    padding-inline: 3px;
+  }
+
+  .usage-track {
+    height: 78px;
+    width: 9px;
+  }
+
+  .usage-date,
+  .usage-minutes {
+    font-size: 10px;
+    white-space: nowrap;
   }
 
   .completed-row,
