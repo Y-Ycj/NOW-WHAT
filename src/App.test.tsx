@@ -187,7 +187,7 @@ describe("App", () => {
     expect(unlockButton).toBeTruthy();
     click(unlockButton!);
 
-    expect(container.textContent).toContain("智能导入对话");
+    expect(container.textContent).toContain("本次会话已解锁");
     expect(container.textContent).toContain("支持识图");
     expect(container.querySelector('input[aria-label="上传截图"]')).toBeTruthy();
 
@@ -252,7 +252,7 @@ describe("App", () => {
     click(restoredAiButton!);
     await settleMotion();
 
-    expect(second.container.textContent).toContain("智能导入对话");
+    expect(second.container.textContent).toContain("智能导入");
     expect(second.container.textContent).toContain("本机已保存 sk-l...1234");
 
     const clearButton = Array.from(second.container.querySelectorAll("button")).find(

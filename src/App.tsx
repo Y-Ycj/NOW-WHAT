@@ -1270,17 +1270,21 @@ function WantView({
           ) : (
             <div className="ai-chat-shell">
               <div className="ai-chat-header">
-                <div className="panel-title">
-                  <Bot size={18} aria-hidden="true" />
-                  <h2>智能导入对话</h2>
+                <div className="ai-chat-title">
+                  <span className="ai-avatar">
+                    <Bot size={16} aria-hidden="true" />
+                  </span>
+                  <div>
+                    <h2>智能导入</h2>
+                    <p>{selectedModel?.label ?? "已选择模型"}{selectedModelHasVision ? " · 支持识图" : " · 仅文字"}</p>
+                  </div>
                 </div>
                 <div className="ai-connection">
-                  <span>{selectedModel?.label ?? "已选择模型"}{selectedModelHasVision ? " · 支持识图" : " · 仅文字"}</span>
                   <span>{savedApiKeyMask ? `本机已保存 ${savedApiKeyMask}` : "本次会话已解锁"}</span>
-                  <button type="button" onClick={clearSavedApiKey}>清除密钥</button>
+                  <button type="button" className="ai-clear-key" onClick={clearSavedApiKey}>清除密钥</button>
                 </div>
               </div>
-              <div className="chat-thread" aria-live="polite">
+              <div className={importMessages.length <= 1 ? "chat-thread is-empty" : "chat-thread"} aria-live="polite">
                 {importMessages.map((message) => (
                   <article className={`chat-message ${message.role}`} key={message.id}>
                     <p>{message.text}</p>
@@ -1318,7 +1322,7 @@ function WantView({
                 </div>
               ) : null}
               {aiError ? <p className="ai-error" role="alert">{aiError}</p> : null}
-              <div className="chat-composer">
+              <div className={selectedModelHasVision ? "chat-composer has-upload" : "chat-composer"}>
                 {selectedModelHasVision ? (
                   <label className="image-plus" title="上传图片">
                     <input
@@ -1333,10 +1337,10 @@ function WantView({
                 <textarea
                   value={aiPrompt}
                   onChange={(event) => setAiPrompt(event.target.value)}
-                  placeholder={selectedModelHasVision ? "描述任务，或上传截图后补充说明" : "输入文字内容，整理成任务"}
+                  placeholder={selectedModelHasVision ? "输入任务，或上传截图后补充说明" : "输入任务，整理成字段"}
                   aria-label="智能导入对话输入"
                 />
-                <button type="button" onClick={sendImportPrompt} disabled={aiWorking || (!aiPrompt.trim() && !screenshotName)}>
+                <button className="send-import" type="button" onClick={sendImportPrompt} disabled={aiWorking || (!aiPrompt.trim() && !screenshotName)}>
                   <Sparkles size={18} aria-hidden="true" />
                   {aiWorking ? "整理中" : "整理"}
                 </button>
