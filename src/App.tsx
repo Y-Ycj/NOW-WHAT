@@ -198,6 +198,7 @@ function useStoredState() {
 export default function App() {
   const [state, setState] = useStoredState();
   const [view, setView] = useState<View>("now");
+  const [keyboardInputActive, setKeyboardInputActive] = useState(false);
   const reduceMotion = useReducedMotion();
   const pageMotion = getPageMotion(Boolean(reduceMotion));
   const [taskDraft, setTaskDraft] = useState<TaskEntryDraft>(() => initialTaskDraft());
@@ -353,8 +354,23 @@ export default function App() {
     });
   }
 
+  function isKeyboardInputTarget(target: EventTarget | null) {
+    if (!(target instanceof Element)) return false;
+    const input = target.closest("input, textarea");
+    if (input instanceof HTMLTextAreaElement) return true;
+    if (!(input instanceof HTMLInputElement)) return false;
+    return !["button", "checkbox", "color", "file", "radio", "range", "reset", "submit"].includes(input.type);
+  }
+
   return (
-    <main className="app-shell">
+    <main
+      className={keyboardInputActive ? "app-shell keyboard-input-active" : "app-shell"}
+      onBlurCapture={() => {
+        window.setTimeout(() => setKeyboardInputActive(isKeyboardInputTarget(document.activeElement)), 0);
+      }}
+      onFocusCapture={(event) => setKeyboardInputActive(isKeyboardInputTarget(event.target))}
+      onPointerDownCapture={(event) => setKeyboardInputActive(isKeyboardInputTarget(event.target))}
+    >
       <div className="space-bg" aria-hidden="true">
         <div className="orb orb-cyan" />
         <div className="orb orb-violet" />

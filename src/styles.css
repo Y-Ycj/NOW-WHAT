@@ -1861,7 +1861,7 @@ p {
     width: min(420px, calc(100vw - 40px));
   }
 
-  .app-frame:focus-within + .bottom-nav {
+  .app-shell.keyboard-input-active .bottom-nav {
     opacity: 0;
     pointer-events: none;
     transform: translate(-50%, calc(100% + 28px));
