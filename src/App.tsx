@@ -60,6 +60,14 @@ type ImportModelOption = {
   vision: boolean;
 };
 
+function isKeyboardInputTarget(target: EventTarget | null) {
+  if (!(target instanceof Element)) return false;
+  const input = target.closest("input, textarea");
+  if (input instanceof HTMLTextAreaElement) return true;
+  if (!(input instanceof HTMLInputElement)) return false;
+  return !["button", "checkbox", "color", "file", "radio", "range", "reset", "submit"].includes(input.type);
+}
+
 const getPageMotion = (reduceMotion: boolean) =>
   reduceMotion
     ? ({
@@ -198,7 +206,8 @@ function useStoredState() {
 export default function App() {
   const [state, setState] = useStoredState();
   const [view, setView] = useState<View>("now");
-  const [keyboardInputActive, setKeyboardInputActive] = useState(false);
+  const [keyboardOpen, setKeyboardOpen] = useState(false);
+  const viewportBaseline = useRef(0);
   const reduceMotion = useReducedMotion();
   const pageMotion = getPageMotion(Boolean(reduceMotion));
   const [taskDraft, setTaskDraft] = useState<TaskEntryDraft>(() => initialTaskDraft());
@@ -208,6 +217,41 @@ export default function App() {
     () => getCurrentRecommendation(new Date(), activeItems, state.events),
     [activeItems, state.events]
   );
+
+  useEffect(() => {
+    const viewport = window.visualViewport;
+
+    function syncKeyboardState() {
+      const viewportHeight = viewport?.height ?? window.innerHeight;
+      viewportBaseline.current = Math.max(viewportBaseline.current, window.innerHeight, viewportHeight);
+      const heightLoss = viewportBaseline.current - viewportHeight;
+      const keyboardVisible = isKeyboardInputTarget(document.activeElement) && heightLoss > 120;
+      setKeyboardOpen(keyboardVisible);
+    }
+
+    function syncAfterFocusChange() {
+      window.setTimeout(syncKeyboardState, 0);
+    }
+
+    function resetViewportBaseline() {
+      viewportBaseline.current = 0;
+      syncAfterFocusChange();
+    }
+
+    syncKeyboardState();
+    viewport?.addEventListener("resize", syncKeyboardState);
+    window.addEventListener("resize", syncKeyboardState);
+    window.addEventListener("orientationchange", resetViewportBaseline);
+    document.addEventListener("focusin", syncAfterFocusChange);
+    document.addEventListener("focusout", syncAfterFocusChange);
+    return () => {
+      viewport?.removeEventListener("resize", syncKeyboardState);
+      window.removeEventListener("resize", syncKeyboardState);
+      window.removeEventListener("orientationchange", resetViewportBaseline);
+      document.removeEventListener("focusin", syncAfterFocusChange);
+      document.removeEventListener("focusout", syncAfterFocusChange);
+    };
+  }, []);
 
   function addTask(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -354,23 +398,8 @@ export default function App() {
     });
   }
 
-  function isKeyboardInputTarget(target: EventTarget | null) {
-    if (!(target instanceof Element)) return false;
-    const input = target.closest("input, textarea");
-    if (input instanceof HTMLTextAreaElement) return true;
-    if (!(input instanceof HTMLInputElement)) return false;
-    return !["button", "checkbox", "color", "file", "radio", "range", "reset", "submit"].includes(input.type);
-  }
-
   return (
-    <main
-      className={keyboardInputActive ? "app-shell keyboard-input-active" : "app-shell"}
-      onBlurCapture={() => {
-        window.setTimeout(() => setKeyboardInputActive(isKeyboardInputTarget(document.activeElement)), 0);
-      }}
-      onFocusCapture={(event) => setKeyboardInputActive(isKeyboardInputTarget(event.target))}
-      onPointerDownCapture={(event) => setKeyboardInputActive(isKeyboardInputTarget(event.target))}
-    >
+    <main className={keyboardOpen ? "app-shell keyboard-open" : "app-shell"}>
       <div className="space-bg" aria-hidden="true">
         <div className="orb orb-cyan" />
         <div className="orb orb-violet" />
