@@ -525,4 +525,36 @@ describe("App", () => {
     const state = JSON.parse(localStorage.getItem("now-what-app-state") ?? "{}");
     expect(state.items[0].importance).toBe(5);
   });
+
+  it("hides mobile navigation only while the software keyboard reduces the viewport", async () => {
+    const originalViewport = window.visualViewport;
+    const viewport = new EventTarget() as VisualViewport;
+    Object.defineProperty(viewport, "height", { configurable: true, value: window.innerHeight });
+    Object.defineProperty(window, "visualViewport", { configurable: true, value: viewport });
+
+    const { container } = renderApp();
+    await goToAddTask(container);
+    const taskInput = container.querySelector<HTMLInputElement>('input[aria-label="任务具体内容"]');
+    expect(taskInput).toBeTruthy();
+
+    act(() => taskInput!.focus());
+    await act(async () => {
+      await new Promise((resolve) => window.setTimeout(resolve, 0));
+    });
+    expect(container.querySelector(".app-shell")?.classList.contains("keyboard-open")).toBe(false);
+
+    Object.defineProperty(viewport, "height", { configurable: true, value: window.innerHeight - 240 });
+    await act(async () => {
+      viewport.dispatchEvent(new Event("resize"));
+    });
+    expect(container.querySelector(".app-shell")?.classList.contains("keyboard-open")).toBe(true);
+
+    Object.defineProperty(viewport, "height", { configurable: true, value: window.innerHeight });
+    await act(async () => {
+      viewport.dispatchEvent(new Event("resize"));
+    });
+    expect(container.querySelector(".app-shell")?.classList.contains("keyboard-open")).toBe(false);
+
+    Object.defineProperty(window, "visualViewport", { configurable: true, value: originalViewport });
+  });
 });
