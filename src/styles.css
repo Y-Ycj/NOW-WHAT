@@ -625,7 +625,8 @@ p {
   gap: 14px;
 }
 
-.entry-fields label {
+.entry-fields label,
+.entry-fields .importance-field {
   color: var(--muted);
   display: grid;
   font-size: 12px;
@@ -750,7 +751,8 @@ p {
   padding: 12px;
 }
 
-.goal-step-meta label {
+.goal-step-meta label,
+.goal-step-meta .importance-field {
   font-size: 11px;
 }
 
@@ -804,7 +806,6 @@ p {
 .mini-tabs button.active,
 .weekday-picker button:hover,
 .weekday-picker button.active,
-.importance-picker button:hover,
 .importance-picker button.active {
   background: var(--ink);
   border-color: var(--ink);
@@ -812,8 +813,14 @@ p {
   box-shadow: none;
 }
 
+.importance-picker button:not(.active):hover {
+  background: var(--paper-soft);
+  border-color: var(--ink-soft);
+  color: var(--ink);
+  box-shadow: none;
+}
+
 .importance-picker button {
-  clip-path: circle(50%);
   flex: 0 0 40px;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-variant-numeric: tabular-nums;

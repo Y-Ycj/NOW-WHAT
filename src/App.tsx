@@ -1079,7 +1079,7 @@ function WantView({
                           />
                           <span className="field-hint">例如：15 分钟 / 1 小时</span>
                         </label>
-                        <label>
+                        <div className="importance-field">
                           <span className="field-label">重要性</span>
                           <div className="importance-picker compact" role="radiogroup" aria-label={`小任务 ${index + 1} 重要性`}>
                             {[1, 2, 3, 4, 5].map((level) => (
@@ -1102,7 +1102,7 @@ function WantView({
                               </button>
                             ))}
                           </div>
-                        </label>
+                        </div>
                         {taskDraft.steps.length > 1 ? (
                           <button
                             type="button"
@@ -1205,7 +1205,7 @@ function WantView({
                   </label>
                 </div>
 
-                <label>
+                <div className="importance-field">
                   <span className="field-label">任务重要性</span>
                   <div className="importance-picker" role="radiogroup" aria-label="任务重要性">
                     {[1, 2, 3, 4, 5].map((level) => (
@@ -1221,7 +1221,7 @@ function WantView({
                       </button>
                     ))}
                   </div>
-                </label>
+                </div>
               </>
             ) : null}
           </div>

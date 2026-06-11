@@ -668,6 +668,22 @@ describe("App", () => {
     expect(state.items[0].importance).toBe(5);
   });
 
+  it("selects only the intended importance button", async () => {
+    const { container } = renderApp();
+
+    await goToAddTask(container);
+    const importanceGroup = container.querySelector<HTMLElement>('div[aria-label="任务重要性"]');
+    expect(importanceGroup).toBeTruthy();
+    expect(importanceGroup?.closest("label")).toBeNull();
+    const levelTwo = Array.from(importanceGroup!.querySelectorAll<HTMLButtonElement>('button[role="radio"]')).find(
+      (button) => button.textContent?.trim() === "2"
+    );
+    act(() => levelTwo!.click());
+
+    expect(levelTwo?.getAttribute("aria-checked")).toBe("true");
+    expect(importanceGroup?.querySelector<HTMLButtonElement>('button[aria-checked="true"]')?.textContent).toBe("2");
+  });
+
   it("hides mobile navigation only while the software keyboard reduces the viewport", async () => {
     const originalViewport = window.visualViewport;
     const viewport = new EventTarget() as VisualViewport;
