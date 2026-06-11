@@ -39,6 +39,29 @@ describe("aiImport", () => {
     expect(draft.importance).toBe(4);
   });
 
+  it("includes earlier user inputs when refining a task over multiple turns", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        choices: [{ message: { content: JSON.stringify({ kind: "routine", content: "学习英语", importance: 4 }) } }]
+      })
+    } as Response);
+
+    await importTasksWithAi({
+      apiKey: "sk-test",
+      context: ["每天晚上学习英语 30 分钟"],
+      model: "openai:gpt-4.1-mini",
+      prompt: "重要性改成 4",
+      provider: "openai",
+      vision: true
+    });
+
+    const body = JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string);
+    expect(body.messages[1].content).toContain("每天晚上学习英语 30 分钟");
+    expect(body.messages[1].content).toContain("重要性改成 4");
+    expect(body.messages[1].content).toContain("返回完整的最新任务草稿");
+  });
+
   it("calls DeepSeek through its OpenAI-compatible endpoint", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue({
       ok: true,
@@ -56,6 +79,37 @@ describe("aiImport", () => {
     });
 
     expect(fetchMock).toHaveBeenCalledWith("https://api.deepseek.com/chat/completions", expect.any(Object));
+  });
+
+  it("uses current OpenRouter and Kimi model routes", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        choices: [{ message: { content: JSON.stringify({ kind: "oneOff", content: "整理任务", importance: 3 }) } }]
+      })
+    } as Response);
+
+    await importTasksWithAi({
+      apiKey: "sk-openrouter",
+      model: "openrouter:openrouter/auto",
+      prompt: "整理任务",
+      provider: "openrouter",
+      vision: true
+    });
+    let body = JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string);
+    expect(fetchMock.mock.calls[0][0]).toBe("https://openrouter.ai/api/v1/chat/completions");
+    expect(body.model).toBe("openrouter/auto");
+
+    await importTasksWithAi({
+      apiKey: "sk-kimi",
+      model: "moonshot:kimi-k2.6",
+      prompt: "整理任务",
+      provider: "moonshot",
+      vision: true
+    });
+    body = JSON.parse((fetchMock.mock.calls[1][1] as RequestInit).body as string);
+    expect(fetchMock.mock.calls[1][0]).toBe("https://api.moonshot.ai/v1/chat/completions");
+    expect(body.model).toBe("kimi-k2.6");
   });
 
   it("calls Gemini through generateContent", async () => {
@@ -113,7 +167,7 @@ describe("aiImport", () => {
       imageDataUrl: "data:image/jpeg;base64,xyz789",
       imageMimeType: "image/jpeg",
       imageName: "tasks.jpg",
-      model: "anthropic:claude-3-5-sonnet-latest",
+      model: "anthropic:claude-sonnet-4-6",
       prompt: "识别图片",
       provider: "anthropic",
       vision: true

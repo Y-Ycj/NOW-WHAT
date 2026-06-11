@@ -18,7 +18,7 @@ import {
   Sparkles,
   X
 } from "lucide-react";
-import { explainAiImportError, fallbackImportDraft, importTasksWithAi, testAiConnection, type AiImportDraft } from "./aiImport";
+import { explainAiImportError, importTasksWithAi, testAiConnection, type AiImportDraft } from "./aiImport";
 import { getCurrentRecommendation } from "./recommendation";
 import { clearAiCredentials, createEvent, createId, loadAiCredentials, loadState, saveAiCredentials, saveState } from "./storage";
 import { parseTaskInput } from "./taskParser";
@@ -118,27 +118,25 @@ const importModelGroups: Array<{ label: string; models: ImportModelOption[] }> =
       { value: "openai:gpt-4.1-mini", label: "OpenAI GPT-4.1 mini", vision: true, recommended: true },
       { value: "openai:gpt-4.1", label: "OpenAI GPT-4.1", vision: true, recommended: true },
       { value: "openai:gpt-4o-mini", label: "OpenAI GPT-4o mini", vision: true },
-      { value: "anthropic:claude-3-5-sonnet-latest", label: "Claude Sonnet", vision: true, recommended: true },
+      { value: "anthropic:claude-sonnet-4-6", label: "Claude Sonnet 4.6", vision: true, recommended: true },
+      { value: "anthropic:claude-haiku-4-5", label: "Claude Haiku 4.5", vision: true },
       { value: "gemini:gemini-2.5-flash", label: "Gemini 2.5 Flash", vision: true, recommended: true },
       { value: "gemini:gemini-2.5-pro", label: "Gemini 2.5 Pro", vision: true },
       { value: "alibaba:qwen-vl-plus", label: "Qwen-VL Plus", vision: true },
       { value: "alibaba:qwen-vl-max", label: "Qwen-VL Max", vision: true },
-      { value: "mistral:pixtral-large-latest", label: "Mistral Pixtral Large", vision: true },
-      { value: "xai:grok-vision", label: "xAI Grok Vision", vision: true },
-      { value: "openrouter:auto-vision", label: "OpenRouter Auto Vision", vision: true }
+      { value: "moonshot:kimi-k2.6", label: "Kimi K2.6", vision: true },
+      { value: "openrouter:openrouter/auto", label: "OpenRouter Auto Router", vision: true }
     ]
   },
   {
     label: "不带识图（仅文字）",
     models: [
       { value: "openai:gpt-4.1-nano", label: "OpenAI GPT-4.1 nano", vision: false },
-      { value: "anthropic:claude-3-5-haiku-latest", label: "Claude Haiku Text", vision: false },
-      { value: "deepseek:deepseek-chat", label: "DeepSeek Chat", vision: false },
-      { value: "moonshot:kimi-k2.5-text", label: "Kimi K2.5 Text", vision: false },
-      { value: "openrouter:auto-text", label: "OpenRouter Auto Text", vision: false }
+      { value: "deepseek:deepseek-chat", label: "DeepSeek Chat", vision: false }
     ]
   }
 ];
+const importModels = importModelGroups.flatMap((group) => group.models);
 
 const quadrantLabels: Record<QuadrantKey, { title: string; note: string }> = {
   importantUrgent: { title: "重要且紧急", note: "先清掉，减少压力" },
@@ -697,14 +695,19 @@ function WantView({
   const [screenshotDataUrl, setScreenshotDataUrl] = useState("");
   const [screenshotMimeType, setScreenshotMimeType] = useState("");
   const [screenshotName, setScreenshotName] = useState("");
+  const [screenshotReading, setScreenshotReading] = useState(false);
   const [formError, setFormError] = useState("");
   const goalTitleRef = useRef<HTMLInputElement>(null);
-  const selectedModel = importModelGroups.flatMap((group) => group.models).find((model) => model.value === selectedImportModel);
+  const selectedModel = importModels.find((model) => model.value === selectedImportModel);
   const selectedModelHasVision = Boolean(selectedModel?.vision);
 
   useEffect(() => {
     const saved = loadAiCredentials();
     if (!saved) return;
+    if (!importModels.some((model) => model.value === saved.model)) {
+      clearAiCredentials();
+      return;
+    }
     setApiKey(saved.apiKey);
     setSelectedImportModel(saved.model);
     setAiUnlocked(true);
@@ -798,6 +801,7 @@ function WantView({
       const provider = getImportProvider(selectedImportModel);
       const draft = await importTasksWithAi({
         apiKey,
+        context: importMessages.filter((message) => message.role === "user").map((message) => message.text),
         imageDataUrl: screenshotDataUrl,
         imageMimeType: screenshotMimeType,
         imageName: screenshotName,
@@ -820,17 +824,15 @@ function WantView({
       setScreenshotMimeType("");
       setScreenshotName("");
     } catch (error) {
-      const fallback = fallbackImportDraft(text || screenshotName);
-      setAiError(`${explainAiImportError(error)} 已使用本地解析生成草稿。`);
+      setAiError(explainAiImportError(error));
       setImportMessages((messages) => [
         ...messages,
         {
           id: createId("msg"),
           role: "assistant",
-          text: "API 暂时没有成功返回。我先用本地解析生成一个草稿，你仍然可以确认后导入。"
+          text: "这次没有成功整理，输入内容已保留。请检查错误提示后重试。"
         }
       ]);
-      setImportReviewDraft(taskDraftFromAiDraft(fallback));
     } finally {
       setAiWorking(false);
     }
@@ -838,13 +840,30 @@ function WantView({
 
   function onScreenshotSelected(file?: File) {
     if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setAiError("只能上传图片文件。");
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setAiError("图片不能超过 10 MB，请压缩后重试。");
+      return;
+    }
+    setAiError("");
+    setScreenshotReading(true);
     setScreenshotName(file.name);
     setScreenshotMimeType(file.type || "image/png");
     const reader = new FileReader();
     reader.onload = () => {
       setScreenshotDataUrl(typeof reader.result === "string" ? reader.result : "");
+      setScreenshotReading(false);
     };
-    reader.onerror = () => setAiError("图片读取失败，请重新选择。");
+    reader.onerror = () => {
+      setScreenshotDataUrl("");
+      setScreenshotMimeType("");
+      setScreenshotName("");
+      setScreenshotReading(false);
+      setAiError("图片读取失败，请重新选择。");
+    };
     reader.readAsDataURL(file);
   }
 
@@ -1385,12 +1404,12 @@ function WantView({
                   placeholder={selectedModelHasVision ? "输入任务，或上传截图后补充说明" : "输入任务，整理成字段"}
                   aria-label="智能导入对话输入"
                 />
-                <button className="send-import" type="button" onClick={sendImportPrompt} disabled={aiWorking || (!aiPrompt.trim() && !screenshotName)}>
+                <button className="send-import" type="button" onClick={sendImportPrompt} disabled={aiWorking || screenshotReading || (!aiPrompt.trim() && !screenshotName)}>
                   <Sparkles size={18} aria-hidden="true" />
-                  {aiWorking ? "整理中" : "整理"}
+                  {screenshotReading ? "读取图片" : aiWorking ? "整理中" : "整理"}
                 </button>
               </div>
-              {screenshotName ? <p className="upload-note">已选择图片：{screenshotName}</p> : null}
+              {screenshotName ? <p className="upload-note">{screenshotReading ? "正在读取图片：" : "已选择图片："}{screenshotName}</p> : null}
             </div>
           )}
         </div>

@@ -291,6 +291,39 @@ describe("App", () => {
     expect(container.textContent).toContain("模型不可用或模型名称不匹配");
   });
 
+  it("does not present a confirmable AI draft when the provider request fails", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ error: { message: "invalid key" } }), { status: 401 })
+    );
+    const { container } = renderApp();
+
+    await goToAddTask(container);
+    const aiButton = Array.from(container.querySelectorAll("button")).find(
+      (button) => button.textContent?.trim() === "智能导入"
+    );
+    click(aiButton!);
+    await settleMotion();
+    change(container.querySelector<HTMLInputElement>('input[aria-label="API Key"]')!, "sk-invalid");
+    const unlockButton = Array.from(container.querySelectorAll("button")).find(
+      (button) => button.textContent?.trim() === "使用 API 解锁"
+    );
+    click(unlockButton!);
+
+    changeTextarea(container.querySelector<HTMLTextAreaElement>('textarea[aria-label="智能导入对话输入"]')!, "整理任务");
+    const organizeButton = Array.from(container.querySelectorAll("button")).find(
+      (button) => button.textContent?.trim() === "整理"
+    );
+    click(organizeButton!);
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(container.textContent).toContain("API Key 无效");
+    expect(container.textContent).toContain("输入内容已保留");
+    expect(container.textContent).not.toContain("待确认任务草稿");
+    expect(container.textContent).not.toContain("确认后导入");
+  });
+
   it("combines switch recommendation with optional reason feedback", async () => {
     const { container } = renderApp();
 

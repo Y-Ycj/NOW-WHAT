@@ -18,6 +18,7 @@ export type AiImportDraft = {
 
 export type AiImportRequest = {
   apiKey: string;
+  context?: string[];
   imageDataUrl?: string;
   imageMimeType?: string;
   imageName?: string;
@@ -54,20 +55,28 @@ importance: 1 到 5
 export async function importTasksWithAi(request: AiImportRequest): Promise<AiImportDraft> {
   if (!request.apiKey.trim()) throw new Error("缺少 API Key");
   if (!request.prompt.trim() && !request.imageDataUrl && !request.imageName) throw new Error("缺少导入内容");
+  const contextualRequest = { ...request, prompt: buildContextPrompt(request) };
 
   if (isOpenAiCompatibleProvider(request.provider)) {
-    return importWithOpenAiCompatible(request);
+    return importWithOpenAiCompatible(contextualRequest);
   }
 
   if (request.provider === "anthropic") {
-    return importWithAnthropic(request);
+    return importWithAnthropic(contextualRequest);
   }
 
   if (request.provider === "gemini") {
-    return importWithGemini(request);
+    return importWithGemini(contextualRequest);
   }
 
   throw new AiProviderError("暂不支持这个 API 服务商。请换一个列表中的模型，或等待后续接入。", request.provider);
+}
+
+function buildContextPrompt(request: AiImportRequest) {
+  const context = request.context?.map((item) => item.trim()).filter(Boolean) ?? [];
+  if (!context.length) return request.prompt;
+  const previous = context.map((item, index) => `${index + 1}. ${item}`).join("\n");
+  return `此前用户输入（按时间顺序）：\n${previous}\n\n本轮用户输入：\n${request.prompt || "请结合此前内容和图片继续整理。"}\n\n请结合此前内容理解本轮修改，并返回完整的最新任务草稿。`;
 }
 
 export async function testAiConnection(request: Omit<AiImportRequest, "imageDataUrl" | "imageMimeType" | "imageName" | "prompt">) {
@@ -233,7 +242,7 @@ function endpointForOpenAiCompatibleProvider(provider: string) {
     alibaba: "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions",
     deepseek: "https://api.deepseek.com/chat/completions",
     mistral: "https://api.mistral.ai/v1/chat/completions",
-    moonshot: "https://api.moonshot.cn/v1/chat/completions",
+    moonshot: "https://api.moonshot.ai/v1/chat/completions",
     openai: "https://api.openai.com/v1/chat/completions",
     openrouter: "https://openrouter.ai/api/v1/chat/completions",
     xai: "https://api.x.ai/v1/chat/completions"
