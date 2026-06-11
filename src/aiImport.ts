@@ -2,23 +2,30 @@ import { parseTaskInput } from "./taskParser";
 import type { ActionItem, SourceType } from "./types";
 
 export type AiImportDraft = {
+  cadence?: "daily" | "weekly" | "once";
+  clarifyingQuestion?: string;
   content: string;
   duration?: string;
   goalTitle?: string;
   importance: number;
   kind: SourceType;
+  needsClarification?: boolean;
   schedule?: string;
   steps?: Array<{
+    cadence?: "daily" | "weekly" | "once";
     content: string;
     duration?: string;
     importance: number;
     schedule?: string;
+    weekdays?: number[];
   }>;
+  weekdays?: number[];
 };
 
 export type AiImportRequest = {
   apiKey: string;
   context?: string[];
+  currentDraft?: AiImportDraft;
   imageDataUrl?: string;
   imageMimeType?: string;
   imageName?: string;
@@ -50,7 +57,18 @@ steps: 长期目标下的马上可行动小任务数组
 schedule: 期望时间，可为空
 duration: 持续时长，可为空
 importance: 1 到 5
-如果语义模糊，也先给出最保守草稿。`;
+cadence: "daily" | "weekly" | "once"，日常任务和长期目标小任务使用
+weekdays: 每周重复时使用数字数组，周日到周六分别为 0 到 6
+needsClarification: 是否存在阻碍生成可执行任务的关键歧义
+clarifyingQuestion: 仅在 needsClarification 为 true 时填写，一个最必要的问题
+规则：
+- 用户没有明确说出的时间、持续时长、重要性不得自行补充；留空或使用默认重要性 3
+- 修改已有草稿时，用户未提及的字段必须保持不变
+- 每日重复使用 cadence "daily"；按周几重复使用 "weekly" 和 weekdays；只做一次使用 "once"
+- 长期目标拆成 1 到 3 个马上可以行动的小任务，不生成宽泛阶段
+- 只有关键歧义会阻碍生成可执行任务时才追问，并且一次只问一个问题
+- 每轮重新判断 needsClarification；用户回答了上一轮问题后应设为 false
+- 即使需要追问，也返回当前能确定的完整草稿字段`;
 
 export async function importTasksWithAi(request: AiImportRequest): Promise<AiImportDraft> {
   if (!request.apiKey.trim()) throw new Error("缺少 API Key");
@@ -73,10 +91,17 @@ export async function importTasksWithAi(request: AiImportRequest): Promise<AiImp
 }
 
 function buildContextPrompt(request: AiImportRequest) {
-  const context = request.context?.map((item) => item.trim()).filter(Boolean) ?? [];
-  if (!context.length) return request.prompt;
-  const previous = context.map((item, index) => `${index + 1}. ${item}`).join("\n");
-  return `此前用户输入（按时间顺序）：\n${previous}\n\n本轮用户输入：\n${request.prompt || "请结合此前内容和图片继续整理。"}\n\n请结合此前内容理解本轮修改，并返回完整的最新任务草稿。`;
+  const context = (request.context?.map((item) => item.trim().slice(0, 1500)).filter(Boolean) ?? []).slice(-6);
+  const sections: string[] = [];
+  if (request.currentDraft) {
+    sections.push(`当前已整理草稿：\n${JSON.stringify(request.currentDraft)}`);
+  }
+  if (context.length) {
+    sections.push(`此前用户输入（最近 ${context.length} 条，按时间顺序）：\n${context.map((item, index) => `${index + 1}. ${item}`).join("\n")}`);
+  }
+  sections.push(`本轮用户输入：\n${request.prompt || "请结合此前内容和图片继续整理。"}`);
+  sections.push("请结合当前草稿与此前输入理解本轮修改，未被修改的字段保持不变，并返回完整的最新任务草稿。");
+  return sections.join("\n\n");
 }
 
 export async function testAiConnection(request: Omit<AiImportRequest, "imageDataUrl" | "imageMimeType" | "imageName" | "prompt">) {
@@ -265,19 +290,35 @@ function normalizeDraft(value: unknown): AiImportDraft {
   const draft = value as Partial<AiImportDraft>;
   const kind = draft.kind === "routine" || draft.kind === "longTerm" ? draft.kind : "oneOff";
   return {
+    cadence: normalizeCadence(draft.cadence),
+    clarifyingQuestion: draft.clarifyingQuestion ? String(draft.clarifyingQuestion) : undefined,
     content: String(draft.content || draft.steps?.[0]?.content || "待整理任务"),
     duration: draft.duration ? String(draft.duration) : undefined,
     goalTitle: draft.goalTitle ? String(draft.goalTitle) : undefined,
     importance: clampImportance(draft.importance),
     kind,
+    needsClarification: Boolean(draft.needsClarification && draft.clarifyingQuestion),
     schedule: draft.schedule ? String(draft.schedule) : undefined,
     steps: draft.steps?.map((step) => ({
+      cadence: normalizeCadence(step.cadence),
       content: String(step.content || "待整理任务"),
       duration: step.duration ? String(step.duration) : undefined,
       importance: clampImportance(step.importance),
-      schedule: step.schedule ? String(step.schedule) : undefined
-    }))
+      schedule: step.schedule ? String(step.schedule) : undefined,
+      weekdays: normalizeWeekdays(step.weekdays)
+    })),
+    weekdays: normalizeWeekdays(draft.weekdays)
   };
+}
+
+function normalizeCadence(value: unknown) {
+  return value === "daily" || value === "weekly" || value === "once" ? value : undefined;
+}
+
+function normalizeWeekdays(value: unknown) {
+  if (!Array.isArray(value)) return undefined;
+  const days = [...new Set(value.map(Number).filter((day) => Number.isInteger(day) && day >= 0 && day <= 6))].sort();
+  return days.length ? days : undefined;
 }
 
 function clampImportance(value: unknown) {

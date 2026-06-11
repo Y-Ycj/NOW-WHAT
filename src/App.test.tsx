@@ -324,6 +324,115 @@ describe("App", () => {
     expect(container.textContent).not.toContain("确认后导入");
   });
 
+  it("asks one clarification question before presenting an ambiguous AI draft", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                clarifyingQuestion: "你希望先从哪个项目开始？",
+                content: "推进项目",
+                importance: 3,
+                kind: "oneOff",
+                needsClarification: true
+              })
+            }
+          }
+        ]
+      })
+    } as Response);
+    const { container } = renderApp();
+
+    await goToAddTask(container);
+    const aiButton = Array.from(container.querySelectorAll("button")).find(
+      (button) => button.textContent?.trim() === "智能导入"
+    );
+    click(aiButton!);
+    await settleMotion();
+    change(container.querySelector<HTMLInputElement>('input[aria-label="API Key"]')!, "sk-test");
+    const unlockButton = Array.from(container.querySelectorAll("button")).find(
+      (button) => button.textContent?.trim() === "使用 API 解锁"
+    );
+    click(unlockButton!);
+
+    changeTextarea(container.querySelector<HTMLTextAreaElement>('textarea[aria-label="智能导入对话输入"]')!, "帮我推进项目");
+    const organizeButton = Array.from(container.querySelectorAll("button")).find(
+      (button) => button.textContent?.trim() === "整理"
+    );
+    click(organizeButton!);
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(container.textContent).toContain("你希望先从哪个项目开始？");
+    expect(container.textContent).not.toContain("待确认任务草稿");
+    expect(container.textContent).not.toContain("确认后导入");
+  });
+
+  it("maps AI recurrence fields into the task form and saved task", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                cadence: "weekly",
+                content: "学习英语",
+                importance: 4,
+                kind: "routine",
+                weekdays: [1, 3, 5]
+              })
+            }
+          }
+        ]
+      })
+    } as Response);
+    const { container } = renderApp();
+
+    await goToAddTask(container);
+    const aiButton = Array.from(container.querySelectorAll("button")).find(
+      (button) => button.textContent?.trim() === "智能导入"
+    );
+    click(aiButton!);
+    await settleMotion();
+    change(container.querySelector<HTMLInputElement>('input[aria-label="API Key"]')!, "sk-test");
+    const unlockButton = Array.from(container.querySelectorAll("button")).find(
+      (button) => button.textContent?.trim() === "使用 API 解锁"
+    );
+    click(unlockButton!);
+    changeTextarea(container.querySelector<HTMLTextAreaElement>('textarea[aria-label="智能导入对话输入"]')!, "每周一三五学习英语");
+    const organizeButton = Array.from(container.querySelectorAll("button")).find(
+      (button) => button.textContent?.trim() === "整理"
+    );
+    click(organizeButton!);
+    await act(async () => {
+      await Promise.resolve();
+    });
+    const confirmButton = Array.from(container.querySelectorAll("button")).find(
+      (button) => button.textContent?.trim() === "确认后导入"
+    );
+    click(confirmButton!);
+    await settleMotion();
+
+    expect(container.querySelector<HTMLInputElement>('input[aria-label="任务具体内容"]')?.value).toBe("学习英语");
+    expect(container.querySelector<HTMLButtonElement>('div[aria-label="重复频率"] button[aria-checked="true"]')?.textContent).toBe("每周");
+    const activeDays = Array.from(container.querySelectorAll<HTMLButtonElement>('div[aria-label="选择周几"] button.active')).map(
+      (button) => button.textContent
+    );
+    expect(activeDays).toEqual(["周一", "周三", "周五"]);
+
+    const addButton = Array.from(container.querySelectorAll("button")).find(
+      (button) => button.textContent?.trim() === "添加日常任务"
+    );
+    click(addButton!);
+    await settleMotion();
+    const state = JSON.parse(localStorage.getItem("now-what-app-state") ?? "{}");
+    expect(state.items[0].recurrence).toEqual({ frequency: "weekly", weekdays: [1, 3, 5] });
+  });
+
   it("combines switch recommendation with optional reason feedback", async () => {
     const { container } = renderApp();
 

@@ -15,10 +15,12 @@ describe("aiImport", () => {
             message: {
               content: JSON.stringify({
                 kind: "oneOff",
-                content: "提交报表",
-                schedule: "明天下午三点",
-                duration: "30 分钟",
-                importance: 4
+              content: "提交报表",
+              cadence: "weekly",
+              schedule: "明天下午三点",
+              duration: "30 分钟",
+              importance: 4,
+              weekdays: [5, 1, 3, 8, 3]
               })
             }
           }
@@ -36,7 +38,9 @@ describe("aiImport", () => {
 
     expect(fetchMock).toHaveBeenCalledWith("https://api.openai.com/v1/chat/completions", expect.any(Object));
     expect(draft.content).toBe("提交报表");
+    expect(draft.cadence).toBe("weekly");
     expect(draft.importance).toBe(4);
+    expect(draft.weekdays).toEqual([1, 3, 5]);
   });
 
   it("includes earlier user inputs when refining a task over multiple turns", async () => {
@@ -49,7 +53,14 @@ describe("aiImport", () => {
 
     await importTasksWithAi({
       apiKey: "sk-test",
-      context: ["每天晚上学习英语 30 分钟"],
+      context: ["忽略的旧消息", "消息 2", "消息 3", "消息 4", "消息 5", "消息 6", "每天晚上学习英语 30 分钟"],
+      currentDraft: {
+        content: "学习英语",
+        duration: "30 分钟",
+        importance: 3,
+        kind: "routine",
+        schedule: "每天晚上"
+      },
       model: "openai:gpt-4.1-mini",
       prompt: "重要性改成 4",
       provider: "openai",
@@ -57,9 +68,11 @@ describe("aiImport", () => {
     });
 
     const body = JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string);
+    expect(body.messages[1].content).toContain("当前已整理草稿");
     expect(body.messages[1].content).toContain("每天晚上学习英语 30 分钟");
     expect(body.messages[1].content).toContain("重要性改成 4");
     expect(body.messages[1].content).toContain("返回完整的最新任务草稿");
+    expect(body.messages[1].content).not.toContain("忽略的旧消息");
   });
 
   it("calls DeepSeek through its OpenAI-compatible endpoint", async () => {

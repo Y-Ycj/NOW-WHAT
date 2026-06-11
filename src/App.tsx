@@ -689,6 +689,7 @@ function WantView({
       text: "把你想导入的内容发给我。可以是一段文字、一个大目标，或截图里的任务。"
     }
   ]);
+  const [currentAiDraft, setCurrentAiDraft] = useState<AiImportDraft>();
   const [importReviewDraft, setImportReviewDraft] = useState<TaskEntryDraft>();
   const [membershipNoticeOpen, setMembershipNoticeOpen] = useState(false);
   const [selectedImportModel, setSelectedImportModel] = useState(importModelGroups[0].models[0].value);
@@ -802,6 +803,7 @@ function WantView({
       const draft = await importTasksWithAi({
         apiKey,
         context: importMessages.filter((message) => message.role === "user").map((message) => message.text),
+        currentDraft: currentAiDraft,
         imageDataUrl: screenshotDataUrl,
         imageMimeType: screenshotMimeType,
         imageName: screenshotName,
@@ -810,6 +812,23 @@ function WantView({
         provider,
         vision: selectedModelHasVision
       });
+      setCurrentAiDraft(draft);
+      if (draft.needsClarification && draft.clarifyingQuestion) {
+        setImportMessages((messages) => [
+          ...messages,
+          {
+            id: createId("msg"),
+            role: "assistant",
+            text: draft.clarifyingQuestion ?? "还需要确认一个信息。"
+          }
+        ]);
+        setImportReviewDraft(undefined);
+        setAiPrompt("");
+        setScreenshotDataUrl("");
+        setScreenshotMimeType("");
+        setScreenshotName("");
+        return;
+      }
       setImportMessages((messages) => [
         ...messages,
         {
@@ -871,6 +890,7 @@ function WantView({
     if (!importReviewDraft) return;
     setTaskDraft(importReviewDraft);
     setWantPage("text");
+    setCurrentAiDraft(undefined);
     setImportReviewDraft(undefined);
   }
 
@@ -1788,13 +1808,13 @@ function taskDraftFromAiDraft(draft: AiImportDraft): TaskEntryDraft {
       kind: "longTerm",
       steps: (draft.steps?.length ? draft.steps : [{ content: draft.content, duration: draft.duration, importance: draft.importance, schedule: draft.schedule }]).map(
         (step) => ({
-          cadence: "daily",
+          cadence: step.cadence || "daily",
           content: step.content,
           duration: step.duration || "",
           id: createId("step"),
           importance: step.importance,
           schedule: step.schedule || "",
-          weekdays: [new Date().getDay()]
+          weekdays: step.cadence === "weekly" && step.weekdays?.length ? step.weekdays : [new Date().getDay()]
         })
       )
     };
@@ -1806,7 +1826,9 @@ function taskDraftFromAiDraft(draft: AiImportDraft): TaskEntryDraft {
     duration: draft.duration || "",
     importance: draft.importance,
     kind: draft.kind,
-    schedule: draft.schedule || ""
+    routineCadence: draft.cadence === "weekly" ? "weekly" : "daily",
+    schedule: draft.schedule || "",
+    weekdays: draft.cadence === "weekly" && draft.weekdays?.length ? draft.weekdays : [new Date().getDay()]
   };
 }
 
