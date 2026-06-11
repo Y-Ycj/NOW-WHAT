@@ -813,10 +813,15 @@ p {
 }
 
 .importance-picker button {
+  clip-path: circle(50%);
+  flex: 0 0 40px;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-variant-numeric: tabular-nums;
-  min-width: 46px;
+  height: 40px;
+  min-height: 40px;
+  min-width: 40px;
   padding: 0;
+  width: 40px;
 }
 
 .importance-picker.compact {
@@ -829,7 +834,11 @@ p {
 }
 
 .importance-picker.compact button {
+  flex-basis: 34px;
+  height: 34px;
+  min-height: 34px;
   min-width: 34px;
+  width: 34px;
 }
 
 .entry-submit {
