@@ -104,6 +104,16 @@ describe("App", () => {
     expect(container.textContent).not.toContain("把想法变成下一步");
   });
 
+  it("resets the page scroll position when switching views", async () => {
+    const scrollSpy = vi.spyOn(window, "scrollTo");
+    const { container } = renderApp();
+    scrollSpy.mockClear();
+
+    await goToAddTask(container);
+
+    expect(scrollSpy).toHaveBeenCalledWith({ top: 0, behavior: "auto" });
+  });
+
   it("allows adding tasks without optional schedule or duration", async () => {
     const { container } = renderApp();
 

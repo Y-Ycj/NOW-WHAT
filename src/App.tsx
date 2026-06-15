@@ -147,6 +147,8 @@ const quadrantLabels: Record<QuadrantKey, { title: string; note: string }> = {
 
 const nowIso = () => new Date().toISOString();
 
+const scrollPageTop = () => window.scrollTo({ top: 0, behavior: "auto" });
+
 const maskSecret = (value: string) => {
   const trimmed = value.trim();
   if (trimmed.length <= 8) return "已保存";
@@ -215,6 +217,8 @@ export default function App() {
     () => getCurrentRecommendation(new Date(), activeItems, state.events),
     [activeItems, state.events]
   );
+
+  useEffect(scrollPageTop, [view]);
 
   useEffect(() => {
     const viewport = window.visualViewport;
@@ -701,6 +705,8 @@ function WantView({
   const goalTitleRef = useRef<HTMLInputElement>(null);
   const selectedModel = importModels.find((model) => model.value === selectedImportModel);
   const selectedModelHasVision = Boolean(selectedModel?.vision);
+
+  useEffect(scrollPageTop, [wantPage, aiUnlocked]);
 
   useEffect(() => {
     const saved = loadAiCredentials();
@@ -1465,6 +1471,8 @@ function TasksView({
   const dailyUsage = useMemo(() => buildDailyUsage(completedRecords, selectedDay), [completedRecords, selectedDay]);
   const selectedRecords = completedRecords.filter((record) => localDateKey(new Date(record.completedAt)) === selectedDay);
   const selectedLabel = formatDayLabel(selectedDay);
+
+  useEffect(scrollPageTop, [taskPage]);
 
   return (
     <motion.section className="stack-view" aria-label="任务" {...pageMotion}>
